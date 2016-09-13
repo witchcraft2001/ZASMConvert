@@ -1,0 +1,344 @@
+          org 25000
+          jr nach
+          db "UnCo"
+colors    db 7   цвет главного меню
+          db #38               заголовка
+          db 7   подсветка будней
+          db 2             субботы
+          db 2             воскресения
+nach      ld hl,colors
+          ld a,(hl)
+          ld (menu1+4),a
+          inc hl
+          ld a,(hl)
+          ld (menu2+4),a
+          inc hl
+          ld a,(hl)
+          ld (menu4+4),a 
+          inc hl
+          ld a,(hl)
+          ld (menu3+4),a 
+          inc hl
+          ld a,(hl)
+          ld (menu5+4),a 
+          ld de,0
+          ld c,6
+          rst 16
+          ld de,30
+          add hl,de
+          ld e,(hl)
+          inc hl
+          ld d,(hl)
+          call CurrDate
+          jr nc,dall1
+          ld a,6:ld (Month),a 
+          ld hl,2001:ld (Year),hl 
+dall1     ld a,(ruslat)
+          or a 
+          push af 
+          ld hl,rustxt
+          jr z,rusday1
+          ld hl,lattxt
+rusday1   ld de,txt1+3
+          ld bc,5
+          ldir 
+          ld de,txt3+23
+          ld c,20
+          ld a,7
+latday1   push bc
+          exa
+          ldi:ldi
+          pop bc
+          ex de,hl 
+          add hl,bc
+          ex de,hl
+          exa
+          dec a
+          jr nz,latday1
+          pop af 
+          ld hl,tablmesRus
+          jr z,rusmes1
+          ld hl,tablmesLat
+rusmes1   ld a,(Month)
+          dec a 
+          ld b,a
+          add a,b:add a,b 
+          add a,l
+          ld l,a
+          jr nc,netC
+          inc h
+netC      ld de,txt1+10
+          ld bc,3
+          ldir
+          ld de,(Year)
+          ld hl,txt1+14
+          ld b,10
+          ld a,4
+          or a
+          ld c,#7c
+          rst 16
+          ld ix,menu1
+          ld c,#61
+          sub a
+          rst 16
+          ld c,#66
+          rst 16
+          ld ix,menu2
+          ld c,#61
+          ld a,2
+          rst 16
+          ld hl,#000c
+          ld c,#6b
+          rst 16
+          ld c,#6d
+          ld hl,txt2
+          ld b,19
+          rst 16
+          call raschet
+nenav     ld c,#09
+          rst 16
+          jr z,nenav
+          ld hl,txt1
+          sub a 
+          ret 
+
+raschet
+          ld ix,menu5
+          ld c,#61
+          ld a,1
+          rst 16
+          ld ix,menu3
+          ld c,#61
+          ld a,1
+          rst 16
+          ld ix,menu4
+          ld c,#61
+          ld a,1
+          ld (Day),a 
+          rst 16
+          call CalcClnd
+          ld a,(Month):ld de,Days-1
+          call XLAT_b
+          ld b,a
+          ld hl,Day
+          ld a,16
+          ld (x_poz),a
+          ld a,(FrstDay)
+          add a,255
+          ld (y_poz),a 
+rasch1    push bc 
+          push hl 
+          ld hl,(x_poz)
+          ld c,#6b
+          rst 16
+          ld a,(Day)
+          ld bc,#3030
+          and a
+ras1      sbc a,10
+          inc b
+          jr nc,ras1
+          add a,10
+          dec b 
+          add a,c
+          ld (denX+1),a
+          ld a,b
+          cp #30
+          jr nz,ras2
+          ld a,32
+ras2      ld (denX),a 
+          ld hl,denX
+          ld bc,#026d
+          rst 16
+          ld a,(y_poz)
+          inc a
+          cp 7
+          jr c,rasch2
+          ld a,(x_poz)
+          add a,3
+          ld (x_poz),a
+          sub a
+rasch2    ld (y_poz),a 
+          pop hl
+          inc (hl)
+          pop bc
+          djnz rasch1
+          ret
+CalcClnd  ld de,BeginM:ld a,(Month)
+          dec a 
+          call XLAT_b:ld hl,(Year)
+          ld de,1997:or a:push de 
+          sbc hl,de:ld c,l:ld b,h:pop hl 
+          call nz,CalcYear
+          ld (FrstDay),a:ret 
+
+CalcYear
+          ld e,a:ld a,1:jrnc $+4:ld a,3
+          ld (WiskMode),a 
+
+          jrnc IncYear
+Dec_Y2    dec hl:call WiskYear
+          jrnz Dec_Y1
+          ld a,(Month):cp 2:ld a,0
+          jrnc $+3:inc a:xor d 
+          jrz Dec_Y1:dec e 
+Dec_Y1    dec e:ld a,e:or a:jrz $+6
+          cp 8:jrc $+5:add a,7:ld e,a 
+          inc bc:ld a,b:or c:jrnz Dec_Y2
+          ld a,e:ret 
+
+
+IncYear   inc hl:call WiskYear
+          jrnz Inc_Y1
+          ld a,(Month):cp 2:ld a,0
+          jrnc $+3:inc a:xor d 
+          jrnz Inc_Y1:inc e 
+Inc_Y1    inc e:ld a,e:cp 8:jrc $+5
+          sub 7:ld e,a:dec bc:ld a,b
+          or c:jrnz IncYear:ld a,e:ret 
+
+; d=0 - год високосный
+; d=1 - високосный -> невисокосный
+; d=2 - год невисокосный
+WiskYear  ld d,0:ld a,l:and 3:retz:inc d
+          cp 1
+WiskMode equ $-1:retz:inc d:ret 
+
+XLAT_b    add a,e
+          ld e,a
+          adc a,d
+          sub e
+          ld d,a
+          ld a,(de)
+          ret
+
+FrstDay   db 4
+WeekDay   db 4
+LastDay   db 6
+ Дни недели 1 числа каждого из месяцев.
+BeginM
+       db 3 ;янв
+       db 6
+       db 6 ;март
+       db 2
+       db 4 ;май
+       db 7
+       db 2 ;июль
+       db 5
+       db 1 ;сент.
+       db 3
+       db 6
+       db 1 ;дек.
+
+Month      db 4,12
+           db  1,1,0,0,0:dw 0
+           db  2,1,0,0,0:dw 0
+           db  3,1,0,0,0:dw 0
+           db  4,1,0,0,0:dw 0
+           db  5,1,0,0,0:dw 0
+           db  6,1,0,0,0:dw 0
+           db  7,1,0,0,0:dw 0
+           db  8,1,0,0,0:dw 0
+           db  9,1,0,0,0:dw 0
+           db 10,1,0,0,0:dw 0
+           db 11,1,0,0,0:dw 0
+           db 12,1,0,0,0:dw 0
+
+WeekD    db 4
+Day      db 1
+Year     dw 1997
+
+Days
+       db 31 ;янв
+       db 28
+       db 31 ;март
+       db 30
+       db 31 ;май
+       db 30
+       db 31 ;июль
+       db 31
+       db 30 ;сент.
+       db 31
+       db 30
+       db 31 ;дек.
+
+
+menu4     db 11,9,5,12,7,#ff,0,0
+menu3     db 11,14,1,12,2,#ff,0,0
+menu5     db 11,15,1,12,2,#ff,0,0
+menu1     db 7,4,14,18,7,1,11,21
+txt1      db 13,"  Месяц: Авг-2001",13,13
+txt3      db "┌──┬────────────────┐",13
+          db "│Пн│                │",13
+          db "│Вт│                │",13
+          db "│Ср│                │",13
+          db "│Чт│                │",13
+          db "│Пт│                │",13
+          db "│Сб│                │",13
+          db "│Вс│                │",13
+          db "└──┴────────────────┘",13
+lattxt    db "MonthMdTuWeThFrSaSu"
+rustxt    db "МесяцПнВтСрЧтПтСбВс"
+menu2     db 7,4,1,18,#38,#ff,0,0
+txt2      db "Witchcraft Calendar"
+в de дата считанная из сист. сектора исдоса
+в denx,mesyac,god - тек. дата
+CurrDate  ld a,e
+          and 31
+          ld (Day),a 
+          jr z,dat1
+          ld a,e
+          and 224
+          ld c,a
+          ld a,d
+          and 1
+          or c
+          rlca:rlca:rlca
+          and a
+          jr z,dat1
+          cp 13
+          jr nc,dat1
+          ld (Month),a 
+          ld a,d
+          and 254
+          rrca 
+          ld c,a
+          ld b,0
+          ld hl,1980
+          add hl,bc 
+          ld (Year),hl 
+          ld a,(Month)
+          cp 2
+          jr z,dat3
+          ld c,a
+          ld b,0
+          ld hl,Days-1
+          add hl,bc
+          ld a,(Day)
+          cp (hl)
+          ret z
+          jr nc,dat1
+dat4      xor a
+          ret
+dat3      ld a,(Day)
+          cp 29
+          jr c,dat4
+          jr nz,dat1
+          ld a,(Year)
+          and 3
+          ret z
+dat1      ld a,29
+          scf
+          ret 
+tablmesLat db "JanFebMarAprMayJunJul"
+          db "AugSepOctNovDec"
+tablmesRus db "ЯнвФевМарАпрМайИюнИюл"
+          db "АвгСенОктНояДек"
+ruslat    db 0
+x_poz     db 0
+y_poz     db 0
+denX      ds 2
+
+
+
+
+
